@@ -1,107 +1,87 @@
-# Secured and Monitored Web Infrastructure
+Secured and Monitored Web Infrastructure
 
-This setup shows how to build a secure website infrastructure for www.foobar.com using three servers with proper security and monitoring.
+The setup
 
-## What we have here:
+1-Load Balancer (HAProxy)
 
-User visits website -> Goes through security firewall -> Reaches load balancer -> Gets distributed to one of two web servers -> Each server has its own database
+-Same as before but now has SSL certificate installed
+-Handles HTTPS connections from users
+-Protected by first firewall
 
-Everything is watched by monitoring tools to make sure it works properly.
+2-Server A
 
-## The Setup
+-Runs Nginx web server
+-Runs application server with code
+-Has MySQL database
+-Protected by second firewall
+-Has monitoring client installed
 
-**Security stuff:**
-- 3 firewalls protecting different parts
-- SSL certificate so the website uses HTTPS
+3-Server B
 
-**Main server:**
-- Load balancer (HAproxy) that spreads traffic around
+-Same setup as Server A
+-Protected by third firewall
+-Also has monitoring client
 
-**Two web servers, each with:**
-- Nginx web server
-- Application code
-- MySQL database
-- Monitoring tool watching everything
 
-**Domain setup:**
-- www.foobar.com points to our load balancer at 8.8.8.8
+Why add these new parts?
 
-## How it works when someone visits the site:
+-Three firewalls -> each protects a different piece. First one guards the load balancer from internet attacks. Other two protect each web server from direct attacks
+-SSL certificate -> encrypts all traffic so hackers cant read user data. Makes browsers show lock icon and Google ranks HTTPS sites higher
+-Three monitoring clients -> like security cameras watching everything. They track performance, errors, and traffic to catch problems early
 
-1. Person types www.foobar.com in their browser
-2. Browser connects using HTTPS (secure connection)
-3. Request hits our first firewall protecting the load balancer
-4. Load balancer receives the request and picks which web server to use
-5. Request goes through another firewall to reach the chosen web server
-6. Web server processes the request and talks to its database if needed
-7. Response goes back the same way to the user
 
-## Why we added each new thing:
+What firewalls do
 
-**Three Firewalls:**
-We put firewalls in three places because each one protects a different part of our system. The first one guards our load balancer from bad traffic coming from the internet. The other two protect each web server from getting attacked directly. Think of them like security guards at different doors.
+-Act like bouncers checking every network request
+-Block bad IP addresses and suspicious traffic
+-Only allow web traffic on ports 80 and 443
+-Stop hackers from scanning for weaknesses
 
-**SSL Certificate (HTTPS):**
-This makes sure all the data between users and our website is encrypted. Without it, anyone could spy on what people are doing on our site. It also makes browsers show a lock icon so users trust our site more. Google also ranks HTTPS sites higher in search results.
+Why HTTPS matters
 
-**Three Monitoring Clients:**
-These are like having security cameras everywhere. One watches the load balancer to see how traffic is flowing. The other two watch each web server to make sure they're running smoothly. They collect information about how fast things are running, if there are any errors, and if something is about to break.
+-Regular HTTP sends everything in plain text that anyone can read
+-HTTPS encrypts data so only you and the website understand it
+-Proves youre talking to the real website not a fake one
+-Required for passwords and personal info
 
-## What firewalls actually do:
+What monitoring does
 
-Firewalls are like bouncers at a club. They check every piece of network traffic trying to get in or out of our servers. They have rules about what's allowed and what's not. For example, they might block traffic from known bad IP addresses or only allow web traffic on ports 80 and 443. They also stop hackers from scanning our servers to find weaknesses.
+-Tells us how many visitors we have right now
+-Shows if servers are running out of memory or disk space
+-Tracks how fast pages load
+-Catches error messages users might see
+-Detects if someone is attacking the site
 
-## Why we use HTTPS:
+How monitoring collects data
 
-When you visit a regular HTTP website, everything you do is sent in plain text. Anyone between you and the website can read your passwords, personal info, or anything else you type. HTTPS encrypts all this data so only you and the website can understand it. It also proves that you're actually talking to the real website and not some fake one set up by hackers.
+-Small programs called agents run on each server
+-They check CPU usage, memory, disk space constantly
+-Read log files from web servers and databases
+-Send all info securely to monitoring service like Sumologic
+-We get charts and alerts when something goes wrong
 
-## What monitoring is for:
+Monitoring web server QPS
 
-Monitoring helps us know what's happening with our website all the time. It tells us things like:
-- How many people are visiting right now
-- If any servers are running out of memory or disk space
-- How fast pages are loading
-- If there are any error messages users are seeing
-- If someone might be attacking our site
+-Enable nginx status page in config
+-Set monitoring tool to check it every minute
+-Count requests and calculate per second
+-Set alerts for high or low traffic
+-Track at load balancer too for total numbers
 
-This way we can fix problems before users even notice them.
 
-## How the monitoring tools collect data:
+Big Picture
 
-The monitoring agents are small programs installed on each server. They constantly check things like CPU usage, memory, disk space, and network activity. They also read log files to see what the web server and database are doing. All this information gets sent securely to a central monitoring service (like Sumologic) where we can see charts and get alerts if something goes wrong.
+-User enters www.foobar.com
+-Browser makes HTTPS connection
+-First firewall checks the traffic
+-Load balancer gets request and picks a server
+-Request goes through another firewall to chosen server
+-Nginx handles it, app server processes it, database provides data
+-Response goes back through same path encrypted
 
-## Monitoring web server QPS (requests per second):
 
-If you want to see how many requests per second your web server is handling:
+Issues with this setup
 
-1. Turn on Nginx's status page by adding this to the config:
-```
-location /nginx_status {
-    stub_status on;
-    allow 127.0.0.1;
-    deny all;
-}
-```
-
-2. Set up your monitoring tool to check this page every minute
-3. Have it count the requests and calculate how many happen per second
-4. Set up alerts so you know if traffic gets unusually high or low
-5. You can also track requests at the load balancer level to see the total traffic
-
-## Problems with this setup:
-
-**SSL termination at the load balancer:**
-Right now, traffic is encrypted from users to the load balancer, but then it becomes unencrypted between the load balancer and web servers. This means if someone gains access to our internal network, they could spy on this traffic. Also, the load balancer has to do all the work of encrypting and decrypting, which can slow things down.
-
-**Only one database can handle writes:**
-Even though we have two databases, they're set up so only one can accept new data or changes at a time. If that database goes down, users can't create accounts, make purchases, or do anything that involves saving data. The whole site basically becomes read-only until we fix it.
-
-**Every server has everything on it:**
-Both web servers are running a web server, application code, AND a database all on the same machine. This is wasteful because:
-- The database might not get used much but still takes up memory
-- If we need more web capacity, we have to also add more database capacity we don't need
-- If one service crashes, it might affect the others
-- It's harder to figure out what's causing problems
-- Updates become more complicated because changing one thing might break another
-
-A better approach would be to separate these into different servers - some just for web serving, some just for applications, and some just for databases. That way each can be optimized for its specific job and scaled independently.
+-SSL termination problem -> traffic is encrypted to load balancer but plain text after that. Someone inside network could spy on it
+-Single database writer -> only one database accepts new data. If it fails the whole site becomes read-only
+-Everything on same servers -> web server, app, and database all compete for resources. Cant scale parts separately and harder to troubleshoot problems
