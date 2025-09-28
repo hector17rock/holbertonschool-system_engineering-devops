@@ -1,44 +1,71 @@
-# Server Architecture – Web vs Application Server
+web server vs. application server
 
-This setup is not all-in-one anymore. Instead, I split things out into separate servers so each one has a clear job. On top of that, I put a load balancer in front to share the traffic.
+-How a web server works
 
-- **HAProxy (Load Balancer)** → the entry point, sends traffic to the web servers.  
-- **Nginx (Web Server)** → deals with static files and passes the rest to the app.  
-- **Application Server** → where the actual app code runs.  
-- **MySQL (Database Server)** → stores all the data.  
+A web server is technology that hosts a website’s code and data. When you enter a URL in your browser, the URL is actually the address identifier of the web server.
 
----
+Your browser and web server communicate as follows:
 
-## Why I added these parts
+The browser uses the URL to find the server’s IP address
+The browser sends an HTTP request for information
+The web server communicates with a database server to find the relevant data
+The web server returns static content such as HTML pages, images, videos, or files in an HTTP response to the browser
+The browser then displays the information to you
+A website that hosts static content like blogs, header images, or articles can run on a web server. However, most websites and web applications are much more interactive and require an application server.
 
-- **Load Balancer:** Without it, one server would get hammered. With HAProxy, traffic is shared and if a server dies, requests keep flowing to the healthy ones.  
-- **Web Server:** Nginx only focuses on web traffic and static files. It doesn’t get slowed down by the app logic.  
-- **Application Server:** This is where the heavy lifting of the code happens. It’s easier to restart or scale this layer without touching Nginx.  
-- **Database Server:** Databases eat resources. Putting MySQL on its own machine keeps things fast and easier to manage.  
+-How an application server works
 
----
+An application server extends the capabilities of a web server by supporting dynamic content generation, application logic, and integration with various resources. It provides a runtime environment where you can run application code and interact with other software components, like messaging systems and databases. It uses business logic to transform data more meaningfully than a web server.
 
-## How a request travels
+When you attempt to access interactive content on a website, the process works as follows:
 
-1. User opens **www.foobar.com**.  
-2. DNS points the request to the load balancer’s IP.  
-3. HAProxy forwards the request to a web server.  
-4. Nginx checks if it’s static → serves it. If not, sends it to the app server.  
-5. The app server runs the code, talks to MySQL if needed, then returns the result.  
-6. Response goes back: App → Web → Load Balancer → User’s browser.  
+The browser uses the URL to finds the server’s IP address
+The browser sends an HTTP request for information
+The web server transfers the request to the application server
+The application server applies business logic and communicates with other servers and third-party systems to fulfill the request
+The application server renders a new HTML page and returns it as a response to the web server
+The web server returns the response to the browser
+The browser displays the information to you
+To use the example of an ecommerce website, when you add items to your cart, or check out items, you interact with the application server.
 
----
+Infraestructure Overview
 
-## Pros
+This time instead of putting everything on one machine, the steup is split into separate part. Each role gets its own server. On top of that im adding a load balancer to sit in front. The layout looks like this:
 
-- Cleaner separation.  
-- Easier to scale (just add more app or web servers).  
-- Less downtime: you can restart the app server while the web server keeps running.  
+-Load Balancer (HAProxy)- receives all traffic and forwrds it to the right server.
+-Web Server (Nginx)- handles statics files and phases dynamic request to the app server.
+-Application Server- runs the actual code of the website.
+-Data Server (MySQL)- stores the data.
 
----
+Why add these Pieces?
 
-## Still not perfect
+-Load balancer
+The Reason for adding HAProxy is simple: without it one machine takes all the load. With a balancer, request are shared across servers, wich means less risk of one box being crushed by traffic. If one server goes down, HAProxy can stop sendingrequest to it, so users wont notice immediatly.
 
-- MySQL is still a single point unless we replicate it.  
-- HAProxy itself could fail unless clustered.  
-- More moving parts = more things to monitor.  
+-Web Server
+Nginx has to its own box now. By moving it out the app layer it can focus only on serving statics content (images, CSS, etc.) and acting as the first entry point after HAProxy. This separation also keeps the app server free to only worry about code.
+
+-Application Server
+This is where the main logic lives. Its responsible for generating dynamic pages and talking to the database. Having it run on its own server means it can be restared, updated or sclaed without touching Nginx.
+
+-Data Server
+Databases eat reosurces especially as the site grows. Keeping MySQL isolated helps with performance and make it easier to handle backups or replications later.
+
+
+How It Works (Step by Step)
+
+-A user opens www.foobar.com in their browser.
+-DNS points the request to the public IP of the load balancer.
+-HAProxy receives the request and forwards it to one of the web servers.
+-The web server (Nginx) checks:
+-If it’s static, it serves the file.
+-If it’s dynamic, it forwards the request to the application server.
+-The application server runs the app, queries the database server if needed, and creates a response.
+-The response travels back through Nginx -> HAProxy -> the browser.
+
+Benefits
+
+-No single server is carrying everything
+-Each role is cleaner and easier to manage
+-Scaling ids simpler beacuse i can add more web or app servers without breaking the steup.
+-Maintenance is less risky (I can restart the app without touching the database or Nginx)
