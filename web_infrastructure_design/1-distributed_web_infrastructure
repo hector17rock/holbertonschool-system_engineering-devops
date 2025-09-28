@@ -1,217 +1,47 @@
-# Distributed Web Infrastructure Design
+Three Server Web Infraestructure
 
-## Infrastructure Overview
+The step up
 
-This design shows a distributed three-server web infrastructure that hosts the website www.foobar.com with improved reliability and performance through load balancing and database replication.
+1-Load Balancer (HAProxy)
 
-```
-Architecture Flow:
-User -> DNS Resolution -> Load Balancer (HAproxy) -> Web Server 1 or 2 -> Application Server -> Database Cluster
-                                                  |
-                                                  -> Primary DB (Read/Write)
-                                                  -> Replica DB (Read Only)
-```
+-This sits at the front door
+-Users connect to it first and decides wich backend server should handle the request
 
-## Infrastructure Components
+2-Server A
 
-### Load Balancer Tier
-- **Load Balancer**: HAproxy (IP: 8.8.8.8)
+-Runs Nginx (web server)
+-Runs the application server with the application code
+-Has MySQL database (configured as primary)
 
-### Web/Application Tier (2 Servers)
-- **Server 1**: 
-  - Web Server: Nginx
-  - Application Server: (e.g., Python/Flask, Node.js, PHP-FPM)
-  - Application Files: Website codebase
-  
-- **Server 2**: 
-  - Web Server: Nginx
-  - Application Server: (e.g., Python/Flask, Node.js, PHP-FPM)
-  - Application Files: Website codebase
+3-Server B
 
-### Database Tier
-- **Primary Database**: MySQL (Master) - Read/Write operations
-- **Replica Database**: MySQL (Slave) - Read-only operations
+-Same as Server A: Nginx plus App server plus code
+-Has a MySQL replica that copies data from server A
 
-### DNS Configuration
-- **Domain**: foobar.com
-- **DNS Record**: www.foobar.com points to Load Balancer IP (8.8.8.8)
 
-## User Request Process
+Why add these extra parts?
 
-When a user wants to access www.foobar.com:
+-Load balancer -> prevents one server from being overwhelmed, spread traffic between two servers and helps if one goes down
+-Second server -> allows more users to be served at the same time and reduces dwontime risks
+-Database replication -> keeps a backup copy of the data ready to use if the primary fails
 
-1. **DNS Resolution**: User's browser resolves www.foobar.com to load balancer IP 8.8.8.8
-2. **Load Balancer**: HAproxy receives the request and selects an available web server
-3. **Web Server Processing**: Selected Nginx server receives and processes the request
-4. **Application Processing**: Nginx forwards dynamic requests to the local application server
-5. **Database Query**: Application server connects to appropriate database (Primary for writes, Replica for reads)
-6. **Response Generation**: Application server generates response
-7. **Response Delivery**: Response travels back through Nginx -> HAproxy -> User
 
-## Additional Elements and Their Purpose
+Load balancer details
 
-### Why Add a Load Balancer (HAproxy)?
-- **Traffic Distribution**: Distributes incoming requests across multiple servers
-- **High Availability**: If one server fails, traffic is automatically routed to healthy servers
-- **Performance**: Prevents any single server from being overwhelmed
-- **Scalability**: Easy to add more servers behind the load balancer
-- **Health Monitoring**: Continuously checks server health and removes unhealthy servers from rotation
+-Primary (on server A) -> all writes (insert, update, delete) go here
+-Replica (on server B) -> gets updates from the primary (usually asynchronous). Its great for reads as a backup
 
-### Why Add a Second Server?
-- **Redundancy**: Eliminates single point of failure in the web/application tier
-- **Load Sharing**: Distributes processing load across multiple machines
-- **Maintenance**: Allows for rolling updates without complete service interruption
-- **Performance**: Increases total system capacity
+From the applications view
 
-### Why Add Database Replication (Primary-Replica)?
-- **Read Scalability**: Replica handles read queries, reducing load on Primary
-- **Data Backup**: Replica serves as a live backup of the Primary
-- **High Availability**: If Primary fails, Replica can be promoted
-- **Geographic Distribution**: Can place replicas closer to users
+-Writes must always go to the primary
+-Reads can go to both but the replica may lag slightly behind
 
-## Load Balancer Configuration
 
-### Distribution Algorithm: Round Robin
-The load balancer is configured with **Round Robin** algorithm:
+Big Picture
 
-**How it works:**
-- Requests are distributed sequentially to each server in turn
-- Server 1 gets request #1, Server 2 gets request #2, Server 1 gets request #3, etc.
-- Simple and ensures equal distribution when requests have similar processing requirements
-- No consideration of server load or response times
-
-**Alternative algorithms available:**
-- **Least Connections**: Routes to server with fewest active connections
-- **Weighted Round Robin**: Assigns different weights to servers based on capacity
-- **IP Hash**: Uses client IP to consistently route to same server
-
-### Active-Active vs Active-Passive Setup
-
-**This infrastructure uses Active-Active setup:**
-
-**Active-Active:**
-- Both servers actively handle traffic simultaneously
-- Load balancer distributes requests between both servers
-- Better resource utilization and performance
-- If one server fails, the other continues handling all traffic
-- Both servers share the workload
-
-**Active-Passive (alternative approach):**
-- Only one server (Active) handles traffic at a time
-- Second server (Passive) remains on standby
-- Passive server only activates if Active server fails
-- Simpler failover logic but wastes resources during normal operation
-- Used when applications don't support concurrent access
-
-## Database Primary-Replica Cluster
-
-### How Primary-Replica Works
-1. **Primary Database (Master)**:
-   - Handles all write operations (INSERT, UPDATE, DELETE)
-   - Records all changes in binary log
-   - Sends binary log entries to Replica
-
-2. **Replica Database (Slave)**:
-   - Receives binary log from Primary
-   - Applies changes to maintain identical data
-   - Handles read operations (SELECT queries)
-   - Runs slightly behind Primary (replication lag)
-
-3. **Replication Process**:
-   - Asynchronous replication (most common)
-   - Primary doesn't wait for Replica confirmation
-   - Replica pulls changes from Primary's binary log
-   - Automatic failover possible with additional tools
-
-### Primary vs Replica Node Differences
-
-**Primary Node (Master):**
-- **Application Writes**: All CREATE, UPDATE, DELETE operations
-- **Application Reads**: Can handle reads but typically reserved for writes
-- **Data Authority**: Source of truth for all data
-- **Performance Impact**: Write operations can be resource-intensive
-- **Failure Impact**: Write operations fail if Primary goes down
-
-**Replica Node (Slave):**
-- **Application Reads**: Handles SELECT queries to reduce Primary load
-- **No Writes**: Cannot accept write operations from application
-- **Data Consistency**: Eventually consistent with Primary (slight lag)
-- **Read Scaling**: Multiple replicas can handle more read traffic
-- **Backup Role**: Serves as backup that can be promoted to Primary
-
-### Application Database Connection Strategy
-- **Write Operations**: Always connect to Primary database
-- **Read Operations**: Connect to Replica database(s)
-- **Connection Logic**: Application needs database connection routing logic
-- **Failover**: Application should fallback to Primary if Replica unavailable
-
-## Infrastructure Issues
-
-### Single Points of Failure (SPOF)
-
-**Load Balancer SPOF:**
-- **Problem**: If HAproxy fails, entire website becomes unreachable
-- **Impact**: No traffic can reach web servers even if they're healthy
-- **Solution**: Need multiple load balancers with virtual IP failover
-
-**Primary Database SPOF:**
-- **Problem**: If Primary database fails, no write operations possible
-- **Impact**: Application becomes read-only or completely non-functional
-- **Solution**: Automatic failover to promote Replica to Primary
-
-**Network/Infrastructure SPOF:**
-- **Problem**: Single network connection, power supply, or data center
-- **Impact**: Complete service outage
-- **Solution**: Multi-datacenter deployment with geographic distribution
-
-### Security Issues
-
-**No Firewall Protection:**
-- **Problem**: All servers directly accessible from internet
-- **Impact**: Vulnerable to direct attacks, port scanning, unauthorized access
-- **Solution**: Implement firewall rules to restrict access to necessary ports only
-
-**No HTTPS/SSL Encryption:**
-- **Problem**: Data transmitted in plain text between user and server
-- **Impact**: 
-  - User data can be intercepted (man-in-the-middle attacks)
-  - No authentication of server identity
-  - Search engines penalize non-HTTPS sites
-- **Solution**: Implement SSL certificates and HTTPS encryption
-
-**No Network Segmentation:**
-- **Problem**: All components on same network level
-- **Impact**: If one component is compromised, lateral movement is easy
-- **Solution**: Separate networks/VLANs for different tiers
-
-### No Monitoring
-
-**System Health Monitoring:**
-- **Problem**: No visibility into server performance, resource usage, or health
-- **Impact**: Cannot detect issues before they cause outages
-- **Solution**: Implement monitoring tools (Nagios, Zabbix, Prometheus)
-
-**Application Performance Monitoring:**
-- **Problem**: No insight into application response times or errors
-- **Impact**: Poor user experience goes undetected
-- **Solution**: Application monitoring tools (New Relic, Datadog)
-
-**Log Monitoring:**
-- **Problem**: No centralized logging or log analysis
-- **Impact**: Difficult to troubleshoot issues or detect security threats
-- **Solution**: Log aggregation and analysis tools (ELK stack, Splunk)
-
-**Database Monitoring:**
-- **Problem**: No monitoring of database performance or replication health
-- **Impact**: Database issues or replication lag go unnoticed
-- **Solution**: Database-specific monitoring tools and replication health checks
-
-## Improvements for Production
-
-To address the identified issues:
-1. **High Availability**: Multiple load balancers with VRRP/keepalived
-2. **Security**: Firewalls, HTTPS/SSL, network segmentation, intrusion detection
-3. **Monitoring**: Comprehensive monitoring stack with alerting
-4. **Backup**: Regular database backups and disaster recovery procedures
-5. **Auto-scaling**: Ability to add/remove servers based on traffic
-6. **Content Delivery**: CDN for static assets and geographic distribution
+-User enters www.foobar.com
+-DNS sends them to the load balancer IP
+-The load balancer (HAProxy) distributes the request to server A to server B
+-Nginx handles it static files are served directly, dynamic ones go through the app server
+-The app server may query the database (writes go to primary, reads could come from primary replica)
+-Response goes back to the user through the load balancer
