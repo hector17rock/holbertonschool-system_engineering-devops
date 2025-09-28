@@ -80,3 +80,9 @@ Each file builds on the previous one:
 - ⏰ Maintenance downtime
 
 Each design shows how real websites evolve from simple beginnings to complex, scalable infrastructures that can handle millions of users. 🌍✨
+
+## 👨‍💻 Author
+
+**Héctor Soto**  
+🤯 💻🪫 Building the future, one commit at a time!  
+GitHub: [@hector17rock](https://github.com/hector17rock)
