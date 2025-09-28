@@ -1,0 +1,44 @@
+# Server Architecture – Web vs Application Server
+
+This setup is not all-in-one anymore. Instead, I split things out into separate servers so each one has a clear job. On top of that, I put a load balancer in front to share the traffic.
+
+- **HAProxy (Load Balancer)** → the entry point, sends traffic to the web servers.  
+- **Nginx (Web Server)** → deals with static files and passes the rest to the app.  
+- **Application Server** → where the actual app code runs.  
+- **MySQL (Database Server)** → stores all the data.  
+
+---
+
+## Why I added these parts
+
+- **Load Balancer:** Without it, one server would get hammered. With HAProxy, traffic is shared and if a server dies, requests keep flowing to the healthy ones.  
+- **Web Server:** Nginx only focuses on web traffic and static files. It doesn’t get slowed down by the app logic.  
+- **Application Server:** This is where the heavy lifting of the code happens. It’s easier to restart or scale this layer without touching Nginx.  
+- **Database Server:** Databases eat resources. Putting MySQL on its own machine keeps things fast and easier to manage.  
+
+---
+
+## How a request travels
+
+1. User opens **www.foobar.com**.  
+2. DNS points the request to the load balancer’s IP.  
+3. HAProxy forwards the request to a web server.  
+4. Nginx checks if it’s static → serves it. If not, sends it to the app server.  
+5. The app server runs the code, talks to MySQL if needed, then returns the result.  
+6. Response goes back: App → Web → Load Balancer → User’s browser.  
+
+---
+
+## Pros
+
+- Cleaner separation.  
+- Easier to scale (just add more app or web servers).  
+- Less downtime: you can restart the app server while the web server keeps running.  
+
+---
+
+## Still not perfect
+
+- MySQL is still a single point unless we replicate it.  
+- HAProxy itself could fail unless clustered.  
+- More moving parts = more things to monitor.  
