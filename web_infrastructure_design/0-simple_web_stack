@@ -1,109 +1,20 @@
-# Simple Web Stack Infrastructure Design
+Simple One Server Web Infrastructure
 
-## Infrastructure Overview
+How it works?
 
-This design shows a basic one-server web infrastructure that hosts the website www.foobar.com using a LAMP-like stack.
+-The browser ask the DNS system: Where is www.foobar.com
+-DNS answer: Its at IP addres 8.8.8.8.
+-The browser connects to that Ip wich is your server
+-The server has Nginx installed (the web server)
+-The application server runs your code (the app files)
+-If your code needs data it ask th MySQL db
+-The database returns the information the app builds the response and Nginx delivers it back to the users browser
 
-```
-User Request Flow:
-User -> DNS Resolution -> Server (8.8.8.8) -> Web Server -> Application Server -> Database -> Response back to User
-```
+Key pieces Explained
 
-## Infrastructure Components
-
-### Domain and DNS Configuration
-- **Domain**: foobar.com
-- **DNS Record**: www.foobar.com (CNAME or A record pointing to 8.8.8.8)
-- **Server IP**: 8.8.8.8
-
-### Single Server Components
-1. **Web Server**: Nginx
-2. **Application Server**: (e.g., Python/Flask, Node.js, PHP-FPM)
-3. **Application Files**: Website codebase
-4. **Database**: MySQL
-
-## User Request Process
-
-When a user wants to access www.foobar.com:
-
-1. **DNS Resolution**: User's browser queries DNS servers to resolve www.foobar.com to IP address 8.8.8.8
-2. **HTTP Request**: Browser sends HTTP request to server 8.8.8.8
-3. **Web Server Processing**: Nginx receives the request and determines how to handle it
-4. **Application Processing**: Nginx forwards dynamic requests to the application server
-5. **Database Query**: Application server queries MySQL database if needed
-6. **Response Generation**: Application server generates response and sends back through Nginx
-7. **Response Delivery**: Nginx sends final response back to user's browser
-
-## Component Explanations
-
-### What is a server?
-A server is a computer system that provides services, data, or programs to other computers (clients) over a network. In this case, it's a physical or virtual machine that hosts all our web infrastructure components.
-
-### Role of the domain name
-The domain name (foobar.com) serves as a human-readable address that maps to the server's IP address. It allows users to access the website using memorable names instead of remembering numeric IP addresses.
-
-### DNS Record Type for "www"
-The "www" in www.foobar.com is typically:
-- **A Record**: Directly maps www.foobar.com to IP address 8.8.8.8
-- **CNAME Record**: Maps www.foobar.com to foobar.com (which then has an A record to 8.8.8.8)
-
-### Role of the web server (Nginx)
-- Acts as the entry point for all HTTP requests
-- Serves static files (HTML, CSS, JavaScript, images) directly
-- Forwards dynamic requests to the application server
-- Handles SSL/TLS termination
-- Provides load balancing and reverse proxy functionality
-- Manages connection pooling and request routing
-
-### Role of the application server
-- Executes the application logic and business rules
-- Processes dynamic content requests
-- Communicates with the database
-- Generates dynamic responses based on user input and data
-- Handles session management and user authentication
-
-### Role of the database (MySQL)
-- Stores and manages persistent data (user accounts, content, configurations)
-- Provides data consistency and integrity
-- Handles concurrent data access
-- Supports complex queries and data relationships
-- Manages data backup and recovery
-
-### Communication Protocol
-The server communicates with users' computers using:
-- **HTTP/HTTPS Protocol**: For web requests and responses
-- **TCP/IP**: Underlying network protocol for reliable data transmission
-
-## Infrastructure Issues
-
-### Single Point of Failure (SPOF)
-- **Problem**: If the single server fails, the entire website becomes unavailable
-- **Impact**: Complete service outage affects all users
-- **Components at risk**: Hardware failure, OS crash, any service failure brings down everything
-
-### Downtime During Maintenance
-- **Problem**: Server must be restarted for code deployments, updates, or configuration changes
-- **Impact**: Website becomes temporarily unavailable during maintenance windows
-- **Examples**: 
-  - Deploying new application code
-  - Updating web server configuration
-  - Database schema changes
-  - Operating system updates
-
-### Cannot Scale with Traffic
-- **Problem**: Single server has limited resources (CPU, RAM, bandwidth)
-- **Impact**: Performance degrades or server crashes under high traffic load
-- **Limitations**:
-  - Fixed processing capacity
-  - Limited concurrent connections
-  - Database becomes bottleneck
-  - No way to distribute load
-
-## Potential Improvements
-To address these issues, consider:
-- Multiple servers with load balancing
-- Database replication and clustering
-- CDN for static content delivery
-- Automated deployment strategies (blue-green, rolling updates)
-- Monitoring and alerting systems
-- Backup and disaster recovery procedures
+-Server -> a physical or virtual computer that provides services to users over the internet. In this case it runs the web server, app server and database all in the box
+-Domain name -> a human friendly way to reach your site (foobar.com) instead of typing the raw IP addres 8.8.8.8
+-DNS record -> the www in www.foobar.com is a A record. servers staic files and forwards dynamic request to the app.
+-Application server -> runs the actual business logic (your code base)
+-Database (MySQL) -> stores and organizes the data the app needs (users, orders, messages, etc.)
+Communication -> the server and the user computer talk over the internet using TCP/IP. The website itself is usually served over HTTP or HTTPS
