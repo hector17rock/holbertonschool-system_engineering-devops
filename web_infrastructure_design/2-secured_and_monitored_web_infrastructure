@@ -1,297 +1,107 @@
-# Secured and Monitored Web Infrastructure Design
+# Secured and Monitored Web Infrastructure
 
-## Infrastructure Overview
+This setup shows how to build a secure website infrastructure for www.foobar.com using three servers with proper security and monitoring.
 
-This design shows a secured and monitored three-server web infrastructure that hosts www.foobar.com with enhanced security through firewalls, encrypted HTTPS traffic, and comprehensive monitoring capabilities.
+## What we have here:
 
+User visits website -> Goes through security firewall -> Reaches load balancer -> Gets distributed to one of two web servers -> Each server has its own database
+
+Everything is watched by monitoring tools to make sure it works properly.
+
+## The Setup
+
+**Security stuff:**
+- 3 firewalls protecting different parts
+- SSL certificate so the website uses HTTPS
+
+**Main server:**
+- Load balancer (HAproxy) that spreads traffic around
+
+**Two web servers, each with:**
+- Nginx web server
+- Application code
+- MySQL database
+- Monitoring tool watching everything
+
+**Domain setup:**
+- www.foobar.com points to our load balancer at 8.8.8.8
+
+## How it works when someone visits the site:
+
+1. Person types www.foobar.com in their browser
+2. Browser connects using HTTPS (secure connection)
+3. Request hits our first firewall protecting the load balancer
+4. Load balancer receives the request and picks which web server to use
+5. Request goes through another firewall to reach the chosen web server
+6. Web server processes the request and talks to its database if needed
+7. Response goes back the same way to the user
+
+## Why we added each new thing:
+
+**Three Firewalls:**
+We put firewalls in three places because each one protects a different part of our system. The first one guards our load balancer from bad traffic coming from the internet. The other two protect each web server from getting attacked directly. Think of them like security guards at different doors.
+
+**SSL Certificate (HTTPS):**
+This makes sure all the data between users and our website is encrypted. Without it, anyone could spy on what people are doing on our site. It also makes browsers show a lock icon so users trust our site more. Google also ranks HTTPS sites higher in search results.
+
+**Three Monitoring Clients:**
+These are like having security cameras everywhere. One watches the load balancer to see how traffic is flowing. The other two watch each web server to make sure they're running smoothly. They collect information about how fast things are running, if there are any errors, and if something is about to break.
+
+## What firewalls actually do:
+
+Firewalls are like bouncers at a club. They check every piece of network traffic trying to get in or out of our servers. They have rules about what's allowed and what's not. For example, they might block traffic from known bad IP addresses or only allow web traffic on ports 80 and 443. They also stop hackers from scanning our servers to find weaknesses.
+
+## Why we use HTTPS:
+
+When you visit a regular HTTP website, everything you do is sent in plain text. Anyone between you and the website can read your passwords, personal info, or anything else you type. HTTPS encrypts all this data so only you and the website can understand it. It also proves that you're actually talking to the real website and not some fake one set up by hackers.
+
+## What monitoring is for:
+
+Monitoring helps us know what's happening with our website all the time. It tells us things like:
+- How many people are visiting right now
+- If any servers are running out of memory or disk space
+- How fast pages are loading
+- If there are any error messages users are seeing
+- If someone might be attacking our site
+
+This way we can fix problems before users even notice them.
+
+## How the monitoring tools collect data:
+
+The monitoring agents are small programs installed on each server. They constantly check things like CPU usage, memory, disk space, and network activity. They also read log files to see what the web server and database are doing. All this information gets sent securely to a central monitoring service (like Sumologic) where we can see charts and get alerts if something goes wrong.
+
+## Monitoring web server QPS (requests per second):
+
+If you want to see how many requests per second your web server is handling:
+
+1. Turn on Nginx's status page by adding this to the config:
 ```
-Architecture Flow:
-User (HTTPS) -> Firewall 1 -> Load Balancer (SSL Termination) -> Firewall 2 -> Web Server 1 -> Database
-                                                              |               |
-                                                              -> Firewall 3 -> Web Server 2 -> Database
-                                                                              |
-                                                              Monitoring Clients collect data from all components
-```
-
-## Infrastructure Components
-
-### Security Layer
-- **3 Firewalls**: Network security protection at different levels
-- **SSL Certificate**: HTTPS encryption for www.foobar.com
-
-### Load Balancer Tier
-- **Load Balancer**: HAproxy with SSL termination (behind Firewall 1)
-
-### Web/Application Tier (2 Servers)
-- **Server 1** (behind Firewall 2):
-  - Web Server: Nginx
-  - Application Server: (e.g., Python/Flask, Node.js, PHP-FPM)
-  - Application Files: Website codebase
-  - Database: MySQL
-  - Monitoring Client: Data collector
-
-- **Server 2** (behind Firewall 3):
-  - Web Server: Nginx
-  - Application Server: (e.g., Python/Flask, Node.js, PHP-FPM)
-  - Application Files: Website codebase
-  - Database: MySQL
-  - Monitoring Client: Data collector
-
-### Monitoring Infrastructure
-- **3 Monitoring Clients**: Data collectors (Sumologic agents or similar)
-- **1 Additional Monitoring Client**: On load balancer for comprehensive coverage
-
-### DNS Configuration
-- **Domain**: foobar.com
-- **DNS Record**: www.foobar.com points to Load Balancer IP (8.8.8.8)
-
-## User Request Process (HTTPS)
-
-When a user wants to access www.foobar.com:
-
-1. **DNS Resolution**: User's browser resolves www.foobar.com to load balancer IP 8.8.8.8
-2. **HTTPS Connection**: Browser initiates secure HTTPS connection (port 443)
-3. **Firewall 1**: Traffic passes through first firewall protecting load balancer
-4. **SSL Termination**: HAproxy terminates SSL/TLS connection and decrypts traffic
-5. **Load Balancing**: HAproxy selects available web server using configured algorithm
-6. **Firewall 2/3**: Traffic passes through firewall protecting selected web server
-7. **Web Server Processing**: Nginx processes the decrypted HTTP request
-8. **Application Processing**: Application server handles dynamic content
-9. **Database Query**: Local MySQL database provides data if needed
-10. **Response Generation**: Response travels back through same path
-11. **SSL Encryption**: Load balancer encrypts response before sending to user
-
-## Additional Security Elements and Their Purpose
-
-### Why Add 3 Firewalls?
-
-**Firewall 1 (Load Balancer Protection):**
-- **Purpose**: Protects the load balancer from direct internet attacks
-- **Rules**: Allow only HTTP (80) and HTTPS (443) traffic from internet
-- **Block**: Unauthorized ports, suspicious traffic patterns, known malicious IPs
-
-**Firewall 2 (Web Server 1 Protection):**
-- **Purpose**: Protects Web Server 1 from unauthorized access
-- **Rules**: Allow traffic only from load balancer, monitoring systems, and administrative access
-- **Block**: Direct internet access, lateral movement from other servers
-
-**Firewall 3 (Web Server 2 Protection):**
-- **Purpose**: Protects Web Server 2 from unauthorized access
-- **Rules**: Allow traffic only from load balancer, monitoring systems, and administrative access
-- **Block**: Direct internet access, lateral movement from other servers
-
-### What Are Firewalls For?
-
-**Network Security:**
-- **Packet Filtering**: Examines incoming and outgoing network packets
-- **Access Control**: Allows or denies traffic based on predefined rules
-- **Port Management**: Blocks unused ports and services from external access
-- **Protocol Filtering**: Controls which network protocols are allowed
-
-**Attack Prevention:**
-- **DDoS Protection**: Can limit connection rates and block flood attacks
-- **Intrusion Prevention**: Blocks known attack patterns and suspicious behavior
-- **Port Scanning Defense**: Prevents reconnaissance attempts
-- **Malware Protection**: Blocks communication with known malicious domains
-
-**Network Segmentation:**
-- **Layer Isolation**: Separates different infrastructure tiers
-- **Lateral Movement Prevention**: Limits damage if one component is compromised
-- **Compliance Requirements**: Meets security standards and regulations
-
-### Why Add SSL Certificate (HTTPS)?
-
-**Data Protection:**
-- **Encryption in Transit**: Protects data between user browser and server
-- **Prevents Eavesdropping**: Makes intercepted traffic unreadable
-- **Man-in-the-Middle Protection**: Prevents traffic modification or injection
-
-**Authentication:**
-- **Server Identity Verification**: Proves server legitimacy to users
-- **Certificate Authority Trust**: Validates domain ownership
-- **Browser Security Indicators**: Shows secure connection to users
-
-**SEO and Compliance Benefits:**
-- **Search Engine Ranking**: Google prioritizes HTTPS sites
-- **Browser Requirements**: Modern browsers mark HTTP sites as "not secure"
-- **Regulatory Compliance**: Required for handling sensitive data (PCI DSS, GDPR)
-
-## Monitoring Infrastructure
-
-### Why Add 3 Monitoring Clients?
-
-**Comprehensive Coverage:**
-- **Client 1 (Load Balancer)**: Monitors traffic distribution, SSL performance, connection health
-- **Client 2 (Web Server 1)**: Monitors system resources, application performance, database health
-- **Client 3 (Web Server 2)**: Monitors system resources, application performance, database health
-
-**Data Collection Benefits:**
-- **System Metrics**: CPU, memory, disk usage, network statistics
-- **Application Metrics**: Response times, error rates, throughput
-- **Log Aggregation**: Centralized logging for troubleshooting and security analysis
-- **Real-time Alerting**: Immediate notification of issues or anomalies
-
-### What Monitoring Is Used For?
-
-**Performance Monitoring:**
-- **Resource Usage**: Track CPU, memory, disk, and network utilization
-- **Response Times**: Monitor application and database query performance
-- **Throughput**: Measure requests per second and data transfer rates
-- **Error Rates**: Track HTTP errors, application exceptions, and failed requests
-
-**Health Monitoring:**
-- **Service Availability**: Ensure all services are running and responding
-- **Database Health**: Monitor query performance, connection pools, replication status
-- **Load Balancer Health**: Track server availability and traffic distribution
-
-**Security Monitoring:**
-- **Access Logs**: Monitor for suspicious login attempts or access patterns
-- **Error Analysis**: Identify potential security attacks through error patterns
-- **Traffic Analysis**: Detect DDoS attacks or unusual traffic spikes
-
-**Business Intelligence:**
-- **User Analytics**: Track user behavior and popular content
-- **Performance Trends**: Historical analysis for capacity planning
-- **SLA Compliance**: Ensure service level agreements are met
-
-### How Monitoring Tool Collects Data
-
-**Agent-Based Collection (Sumologic approach):**
-1. **Installation**: Monitoring agents installed on each server
-2. **Configuration**: Agents configured to collect specific metrics and logs
-3. **Local Collection**: Agents gather system metrics, application logs, and custom metrics
-4. **Data Processing**: Agents parse, filter, and format data locally
-5. **Secure Transmission**: Encrypted data sent to monitoring service (HTTPS/TLS)
-6. **Centralized Storage**: Data stored in monitoring service's time-series database
-7. **Analysis and Alerting**: Monitoring service processes data and triggers alerts
-
-**Data Types Collected:**
-- **System Metrics**: `/proc/stat`, `/proc/meminfo`, disk I/O statistics
-- **Application Logs**: Web server access logs, application error logs
-- **Custom Metrics**: Application-specific performance indicators
-- **Network Metrics**: Connection statistics, bandwidth usage
-
-## Monitoring Web Server QPS (Queries Per Second)
-
-To monitor web server QPS:
-
-### 1. Configure Nginx Monitoring
-```nginx
-# Enable status module in nginx.conf
 location /nginx_status {
     stub_status on;
-    access_log off;
     allow 127.0.0.1;
     deny all;
 }
 ```
 
-### 2. Monitoring Client Configuration
-- **Configure agent** to scrape Nginx status endpoint every minute
-- **Parse metrics** from stub_status output to extract request counts
-- **Calculate QPS** by tracking request count changes over time intervals
+2. Set up your monitoring tool to check this page every minute
+3. Have it count the requests and calculate how many happen per second
+4. Set up alerts so you know if traffic gets unusually high or low
+5. You can also track requests at the load balancer level to see the total traffic
 
-### 3. Custom Application Metrics
-- **Application counters** for processed requests
-- **Database query counters** for backend operations
-- **API endpoint metrics** for different service calls
+## Problems with this setup:
 
-### 4. Load Balancer Metrics
-- **HAproxy statistics** for total requests distributed
-- **Per-server request rates** to identify bottlenecks
-- **Connection statistics** for concurrent users
+**SSL termination at the load balancer:**
+Right now, traffic is encrypted from users to the load balancer, but then it becomes unencrypted between the load balancer and web servers. This means if someone gains access to our internal network, they could spy on this traffic. Also, the load balancer has to do all the work of encrypting and decrypting, which can slow things down.
 
-### 5. Alerting Setup
-- **Threshold alerts** when QPS exceeds normal ranges
-- **Trend analysis** to predict capacity needs
-- **Performance correlation** with error rates and response times
+**Only one database can handle writes:**
+Even though we have two databases, they're set up so only one can accept new data or changes at a time. If that database goes down, users can't create accounts, make purchases, or do anything that involves saving data. The whole site basically becomes read-only until we fix it.
 
-## Infrastructure Issues
+**Every server has everything on it:**
+Both web servers are running a web server, application code, AND a database all on the same machine. This is wasteful because:
+- The database might not get used much but still takes up memory
+- If we need more web capacity, we have to also add more database capacity we don't need
+- If one service crashes, it might affect the others
+- It's harder to figure out what's causing problems
+- Updates become more complicated because changing one thing might break another
 
-### SSL Termination at Load Balancer Level
-
-**Security Issues:**
-- **Internal Traffic Unencrypted**: Traffic between load balancer and web servers is plain HTTP
-- **Network Sniffing Risk**: Anyone with access to internal network can intercept data
-- **Compliance Concerns**: Some regulations require end-to-end encryption
-- **Insider Threats**: Internal users can potentially access sensitive data
-
-**Performance Issues:**
-- **Load Balancer Bottleneck**: All SSL processing happens on single point
-- **CPU Intensive**: SSL encryption/decryption consumes significant CPU resources
-- **Certificate Management**: Single point for certificate updates and management
-
-**Solutions:**
-- **End-to-End Encryption**: Re-encrypt traffic between load balancer and web servers
-- **SSL Passthrough**: Let web servers handle SSL termination directly
-- **Network Segmentation**: Isolated internal networks with additional security
-
-### Single MySQL Server for Writes
-
-**Availability Issues:**
-- **Single Point of Failure**: If primary database fails, no write operations possible
-- **Complete Service Disruption**: Application becomes read-only or non-functional
-- **Data Loss Risk**: Unrecoverable failure could result in data loss
-
-**Performance Issues:**
-- **Write Bottleneck**: All write operations queued through single server
-- **Resource Contention**: Heavy write loads can impact read performance
-- **Scaling Limitations**: Cannot horizontally scale write operations
-
-**Maintenance Issues:**
-- **Downtime Required**: Updates or maintenance require service interruption
-- **Backup Complexity**: Consistent backups difficult during high write activity
-
-**Solutions:**
-- **Database Clustering**: Multi-master setup with automatic failover
-- **Read Replicas**: Distribute read load across multiple servers
-- **Database Sharding**: Partition data across multiple write-capable servers
-- **Automated Failover**: Tools like MySQL Cluster or Galera for high availability
-
-### Same Components on All Servers
-
-**Resource Inefficiency:**
-- **Wasted Resources**: Each server runs database even if not needed
-- **Poor Resource Utilization**: Components compete for CPU, memory, and disk I/O
-- **Scaling Inflexibility**: Cannot scale individual tiers independently
-
-**Complexity Issues:**
-- **Configuration Management**: Multiple services per server increase complexity
-- **Troubleshooting Difficulty**: Harder to isolate performance issues
-- **Update Coordination**: Changes affect multiple services simultaneously
-
-**Security Concerns:**
-- **Increased Attack Surface**: More services per server mean more potential vulnerabilities
-- **Privilege Escalation**: Compromise of one service can affect others on same server
-- **Network Security**: More ports and services need protection
-
-**Maintenance Challenges:**
-- **Service Dependencies**: Restarting one service might affect others
-- **Resource Conflicts**: Updates might require more resources than available
-- **Rollback Complexity**: Failed updates harder to rollback cleanly
-
-**Solutions:**
-- **Service Separation**: Dedicated servers for web, application, and database tiers
-- **Microservices Architecture**: Break application into smaller, independent services  
-- **Containerization**: Use Docker/Kubernetes for better resource isolation
-- **Horizontal Scaling**: Scale each tier independently based on demand
-
-## Recommended Architecture Improvements
-
-### Tier Separation
-```
-Internet -> Firewall -> Load Balancer -> Firewall -> Web Tier -> Firewall -> App Tier -> Firewall -> Database Tier
-```
-
-### High Availability Database
-- **Primary-Primary Replication**: Multiple write-capable database servers
-- **Automatic Failover**: Database proxy for seamless failover
-- **Data Consistency**: Proper conflict resolution and consistency mechanisms
-
-### Enhanced Security
-- **End-to-End Encryption**: TLS between all tiers
-- **Certificate Management**: Automated certificate rotation and management
-- **Network Segmentation**: VLANs or VPCs for tier isolation
-- **Intrusion Detection**: IDS/IPS systems for advanced threat detection
-
-This secured and monitored infrastructure provides significantly improved security, observability, and reliability compared to the basic distributed setup, while identifying areas for further architectural improvements.
+A better approach would be to separate these into different servers - some just for web serving, some just for applications, and some just for databases. That way each can be optimized for its specific job and scaled independently.
